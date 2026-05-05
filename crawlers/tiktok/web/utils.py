@@ -458,7 +458,7 @@ class AwemeIdFetcher:
             raise APINotFoundError("输入的URL不合法。类名：{0}".format(cls.__name__))
 
         # 处理不是短连接的情况
-        if "tiktok" and "@" in url:
+        if "tiktok" in url and "@" in url:
             print(f"输入的URL无需重定向: {url}")
             video_match = cls._TIKTOK_AWEMEID_PATTERN.search(url)
             photo_match = cls._TIKTOK_PHOTOID_PATTERN.search(url)

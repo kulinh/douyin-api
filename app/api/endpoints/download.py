@@ -201,7 +201,7 @@ async def download_file_hybrid(request: Request,
                     )
                 
                 # 使用专门的函数合并音视频
-                success = await merge_bilibili_video_audio(video_url, audio_url, request, file_path, __headers.get('headers'))
+                success = await merge_bilibili_video_audio(video_url, audio_url, request, file_path, __headers)
                 if not success:
                     raise HTTPException(
                         status_code=500,

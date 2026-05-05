@@ -204,9 +204,12 @@ class BaseCrawler:
                 return response
 
             except httpx.RequestError:
-                raise APIConnectionError("连接端点失败，检查网络环境或代理：{0} 代理：{1} 类名：{2}"
-                                         .format(url, self.proxies, self.__class__.__name__)
-                                         )
+                logger.warning("RequestError on attempt {0}/{1}: {2}".format(attempt + 1, self._max_retries, url))
+                if attempt == self._max_retries - 1:
+                    raise APIConnectionError("连接端点失败，检查网络环境或代理：{0} 代理：{1} 类名：{2}"
+                                             .format(url, self.proxies, self.__class__.__name__))
+                await asyncio.sleep(self._timeout)
+                continue
 
             except httpx.HTTPStatusError as http_error:
                 self.handle_http_status_error(http_error, url, attempt + 1)
