@@ -44,7 +44,9 @@ from crawlers.tiktok.app.endpoints import TikTokAPIEndpoints
 from crawlers.utils.utils import model_to_query_string
 
 # 重试机制
-from tenacity import *
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_not_exception_type
+
+from crawlers.utils.api_exceptions import APIRateLimitError
 
 # TikTok接口数据请求模型
 from crawlers.tiktok.app.models import (
@@ -83,7 +85,8 @@ class TikTokAPPCrawler:
 
     # 获取单个作品数据
     # @deprecated("TikTok APP fetch_one_video is deprecated and will be removed in a future release. Use Web API instead. | TikTok APP fetch_one_video 已弃用，将在将来的版本中删除。请改用Web API。")
-    @retry(stop=stop_after_attempt(10), wait=wait_fixed(1))
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2),
+           retry=retry_if_not_exception_type(APIRateLimitError))
     async def fetch_one_video(self, aweme_id: str):
         # 获取TikTok的实时Cookie
         kwargs = await self.get_tiktok_headers()
