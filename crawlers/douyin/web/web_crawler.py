@@ -34,7 +34,9 @@
 
 
 import asyncio  # 异步I/O
+import hashlib  # x-secsdk-web-signature
 import os  # 系统操作
+import re  # 从Cookie中读取UIFID
 import time  # 时间操作
 from urllib.parse import urlencode, quote  # URL编码
 import yaml  # 配置文件
@@ -65,6 +67,22 @@ path = os.path.abspath(os.path.dirname(__file__))
 # 读取配置文件
 with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
+
+
+# Salt of @byted/secsdk-strategy (project-id 34, loaded by www.douyin.com)
+SECSDK_SALT = "A96D855A08C0A9707F8BEF0D9A527E4E"
+
+
+def add_secsdk_signature(params: dict, cookie: str) -> None:
+    """Add uifid, timestamp and x-secsdk-web-signature; aweme/detail answers 403 without them."""
+    match = re.search(r"(?:^|;\s*)(?:UIFID|UIFID_TEMP)=([^;]+)", cookie)
+    if not match:
+        raise ValueError("Douyin Cookie has no UIFID or UIFID_TEMP, cannot sign the request")
+    uifid = match.group(1).strip()
+    timestamp = str(int(time.time()))
+    params.update(uifid=uifid, timestamp=timestamp)
+    signed = f"{uifid}_{timestamp}_{SECSDK_SALT}_{urlencode(params)}"
+    params["x-secsdk-web-signature"] = hashlib.md5(signed.encode()).hexdigest()
 
 
 class DouyinWebCrawler:
@@ -103,8 +121,9 @@ class DouyinWebCrawler:
             # 生成一个作品详情的带有a_bogus加密参数的Endpoint
             params_dict = params.dict()
             params_dict["msToken"] = ''
-            a_bogus = BogusManager.ab_model_2_endpoint(params_dict, kwargs["headers"]["User-Agent"])
-            endpoint = f"{DouyinAPIEndpoints.POST_DETAIL}?{urlencode(params_dict)}&a_bogus={a_bogus}"
+            # The signature covers the whole query and replaces a_bogus here: an a_bogus appended after signing gets 403 "Sign Invalid"
+            add_secsdk_signature(params_dict, kwargs["headers"]["Cookie"])
+            endpoint = f"{DouyinAPIEndpoints.POST_DETAIL}?{urlencode(params_dict)}"
 
             response = await crawler.fetch_get_json(endpoint)
         return response
